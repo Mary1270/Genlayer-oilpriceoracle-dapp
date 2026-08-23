@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crude Consensus — OilPriceOracle Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#0E1013;
+    --bg-panel:#15181C;
+    --bg-panel-raised:#1B1F24;
+    --line:#262B31;
+    --amber:#C97C1F;
+    --amber-bright:#E0954A;
+    --slate:#5B6472;
+    --text:#E8E6E1;
+    --text-dim:#8B92A0;
+    --green:#4C9A6A;
+    --rust:#B3573F;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg-deep);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--amber-bright);}
+
+  /* ---------- Signature element: the Consensus Tape ---------- */
+  .tape-wrap{
+    background:#0A0B0D;
+    border-bottom:1px solid var(--line);
+    overflow:hidden;
+    white-space:nowrap;
+    padding:9px 0;
+    position:sticky;
+    top:0;
+    z-index:20;
+  }
+  .tape{
+    display:inline-block;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:13px;
+    letter-spacing:.02em;
+    animation:scroll-tape 38s linear infinite;
+    will-change:transform;
+  }
+  @keyframes scroll-tape{
+    from{ transform:translateX(0); }
+    to{ transform:translateX(-50%); }
+  }
+  .tape span{ padding:0 22px; color:var(--text-dim); }
+  .tape span b{ color:var(--text); font-weight:600; }
+  .tape .up{ color:var(--green); }
+  .tape .down{ color:var(--rust); }
+  .tape .flat{ color:var(--amber-bright); }
+  @media (prefers-reduced-motion: reduce){
+    .tape{ animation:none; }
+  }
+
+  /* ---------- Header ---------- */
+  header{
+    max-width:1180px;
+    margin:0 auto;
+    padding:52px 24px 28px;
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--amber);
+    margin:0 0 14px;
+  }
+  h1{
+    font-family:'Zilla Slab',serif;
+    font-weight:700;
+    font-size:clamp(34px,5vw,54px);
+    line-height:1.05;
+    margin:0 0 16px;
+    color:var(--text);
+  }
+  h1 em{ font-style:normal; color:var(--amber-bright); }
+  .lede{
+    font-size:17px;
+    line-height:1.6;
+    color:var(--text-dim);
+    max-width:640px;
+    margin:0 0 6px;
+  }
+  .addr-line{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12.5px;
+    color:var(--text-dim);
+    margin-top:18px;
+    padding-top:18px;
+    border-top:1px solid var(--line);
+  }
+  .addr-line code{ color:var(--amber-bright); }
+  .status-pill{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    color:var(--text-dim);
+    border:1px solid var(--line);
+    border-radius:100px;
+    padding:6px 14px;
+    margin-top:16px;
+  }
+  .dot{ width:7px; height:7px; border-radius:50%; background:var(--slate); }
+  .dot.on{ background:var(--green); box-shadow:0 0 8px var(--green); }
+  .status-pill button{
+    background:none;border:none;color:var(--amber-bright);
+    font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer;
+    padding:0;margin-left:6px;text-decoration:underline;
+  }
+
+  /* ---------- Layout ---------- */
+  main{
+    max-width:1180px;
+    margin:0 auto;
+    padding:0 24px 90px;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:22px;
+  }
+  @media (max-width:920px){ main{ grid-template-columns:1fr; } }
+
+  .col{ display:flex; flex-direction:column; gap:22px; }
+
+  .panel{
+    background:var(--bg-panel);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:26px;
+  }
+  .panel h2{
+    font-family:'Zilla Slab',serif;
+    font-size:20px;
+    font-weight:600;
+    margin:0 0 4px;
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+  }
+  .panel h2 .idx{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    color:var(--amber);
+    font-weight:500;
+  }
+  .panel .desc{
+    font-size:13.5px;
+    color:var(--text-dim);
+    line-height:1.5;
+    margin:0 0 20px;
+  }
+
+  label{
+    display:block;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11.5px;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    margin:16px 0 6px;
+  }
+  label:first-of-type{ margin-top:0; }
+  input[type=text], input[type=number], textarea, select{
+    width:100%;
+    background:var(--bg-panel-raised);
+    border:1px solid var(--line);
+    border-radius:4px;
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    font-size:14px;
+    padding:10px 12px;
+    outline:none;
+    transition:border-color .15s ease;
+  }
+  input:focus, textarea:focus, select:focus{
+    border-color:var(--amber);
+  }
+  textarea{ resize:vertical; min-height:64px; font-family:'IBM Plex Mono',monospace; font-size:13px; }
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .hint{ font-size:11.5px; color:var(--slate); margin-top:5px; }
+
+  button.primary{
+    margin-top:22px;
+    width:100%;
+    background:var(--amber);
+    color:#14100A;
+    border:none;
+    border-radius:4px;
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:14.5px;
+    padding:12px 18px;
+    cursor:pointer;
+    transition:background .15s ease, transform .1s ease;
+  }
+  button.primary:hover{ background:var(--amber-bright); }
+  button.primary:active{ transform:scale(.99); }
+  button.primary:disabled{ background:var(--slate); color:var(--bg-deep); cursor:not-allowed; }
+
+  .out{
+    margin-top:16px;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12.5px;
+    line-height:1.6;
+    background:#0A0B0D;
+    border:1px solid var(--line);
+    border-radius:4px;
+    padding:14px;
+    white-space:pre-wrap;
+    word-break:break-word;
+    max-height:340px;
+    overflow:auto;
+    color:var(--text-dim);
+  }
+  .out.ok{ border-color:#26382D; color:var(--green); }
+  .out.err{ border-color:#3A2622; color:var(--rust); }
+  .out .k{ color:var(--amber-bright); }
+
+  /* Evidence readout panel */
+  .evidence-empty{
+    font-size:13px;
+    color:var(--slate);
+    font-style:italic;
+    padding:18px 0;
+  }
+  .evidence-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:11px 0;
+    border-bottom:1px solid var(--line);
+    font-family:'IBM Plex Mono',monospace;
+    font-size:13px;
+  }
+  .evidence-row:last-child{ border-bottom:none; }
+  .evidence-row .domain{ color:var(--text); }
+  .evidence-row .flag{ color:var(--text-dim); font-size:11px; }
+  .badge{
+    display:inline-block;
+    padding:2px 8px;
+    border-radius:100px;
+    font-size:11px;
+    font-family:'IBM Plex Mono',monospace;
+  }
+  .badge.Above{ background:#1B2E22; color:var(--green); }
+  .badge.Below{ background:#331D18; color:var(--rust); }
+  .badge.Equal{ background:#2A2210; color:var(--amber-bright); }
+  .badge.Unclear{ background:#1D2024; color:var(--slate); }
+
+  .verdict-hero{
+    text-align:center;
+    padding:26px 0 8px;
+  }
+  .verdict-hero .label{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+  }
+  .verdict-hero .value{
+    font-family:'Zilla Slab',serif;
+    font-weight:700;
+    font-size:42px;
+    margin:4px 0;
+  }
+  .verdict-hero .winner{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:13px;
+    color:var(--text-dim);
+  }
+
+  footer{
+    max-width:1180px;
+    margin:0 auto;
+    padding:0 24px 60px;
+    font-size:12.5px;
+    color:var(--slate);
+    border-top:1px solid var(--line);
+    padding-top:24px;
+  }
+  footer a{ color:var(--text-dim); }
+</style>
+</head>
+<body>
+
+  <div class="tape-wrap">
+    <div class="tape" id="tape">
+      <span>Connect a wallet to load live agreement evidence…</span>
+      <span>Connect a wallet to load live agreement evidence…</span>
+    </div>
+  </div>
+
+  <header>
+    <p class="eyebrow">GenLayer Intelligent Contract — Frontend</p>
+    <h1>Crude Consensus:<br><em>a terminal for OilPriceOracle</em></h1>
+    <p class="lede">
+      A minimal dApp for OilPriceOracle — the multi-source, provenance-checked
+      oil-price settlement contract on GenLayer. Create a two-party agreement,
+      submit candidate sources for resolution, and read back the deterministic
+      verdict, straight from validator consensus.
+    </p>
+    <div class="status-pill">
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">Not connected</span>
+      <button id="connectBtn">connect wallet</button>
+    </div>
+    <p class="addr-line">
+      Contract&nbsp;&nbsp;<code id="contractAddrText">0xe86C81d32530FCB2e18ba394a69169a79B3768d6</code>
+      &nbsp;·&nbsp; Network&nbsp;&nbsp;<code>GenLayer Studio</code>
+      &nbsp;·&nbsp; <a href="https://explorer-studio.genlayer.com/address/0xe86C81d32530FCB2e18ba394a69169a79B3768d6" target="_blank" rel="noopener">view on explorer →</a>
+    </p>
+  </header>
+
+  <main>
+
+    <div class="col">
+
+      <!-- CREATE AGREEMENT -->
+      <section class="panel">
+        <h2><span class="idx">01</span> Create Agreement</h2>
+        <p class="desc">Define the bet: two parties, a threshold, and the direction each side is betting on.</p>
+
+        <div class="row2">
+          <div>
+            <label for="partyA">Party A</label>
+            <input type="text" id="partyA" placeholder="alice" value="alice">
+          </div>
+          <div>
+            <label for="partyB">Party B</label>
+            <input type="text" id="partyB" placeholder="bob" value="bob">
+          </div>
+        </div>
+
+        <label for="oilType">Oil type</label>
+        <input type="text" id="oilType" value="Brent crude oil">
+
+        <div class="row2">
+          <div>
+            <label for="threshold">Threshold price</label>
+            <input type="text" id="threshold" value="80 USD per barrel">
+          </div>
+          <div>
+            <label for="comparison">Party A wins if price is</label>
+            <select id="comparison">
+              <option value="above">above threshold</option>
+              <option value="below">below threshold</option>
+            </select>
+          </div>
+        </div>
+
+        <label for="description">Description</label>
+        <input type="text" id="description" value="Terminal demo agreement">
+
+        <label for="requiredDomains">Required source domains <span class="hint" style="display:inline;text-transform:none;letter-spacing:0;">(optional — comma-separated, e.g. reuters.com, reuters.com/markets/energy)</span></label>
+        <textarea id="requiredDomains" placeholder="reuters.com, bloomberg.com"></textarea>
+
+        <button class="primary" id="createBtn">Submit create_agreement</button>
+        <div class="out" id="createOut" style="display:none;"></div>
+      </section>
+
+      <!-- RESOLVE AGREEMENT -->
+      <section class="panel">
+        <h2><span class="idx">02</span> Resolve Agreement</h2>
+        <p class="desc">Submit 3–6 candidate source URLs. The contract fetches each, runs LLM-assisted extraction under validator consensus, and computes the verdict deterministically.</p>
+
+        <label for="resolveId">Agreement ID</label>
+        <input type="text" id="resolveId" placeholder="0">
+
+        <label for="sourceUrls">Source URLs <span class="hint" style="display:inline;text-transform:none;letter-spacing:0;">(one per line, 3–6 total)</span></label>
+        <textarea id="sourceUrls" rows="5" placeholder="https://reuters.com/markets/energy&#10;https://bloomberg.com/energy&#10;https://oilprice.com/latest"></textarea>
+
+        <button class="primary" id="resolveBtn">Submit resolve_agreement</button>
+        <div class="out" id="resolveOut" style="display:none;"></div>
+      </section>
+
+    </div>
+
+    <div class="col">
+
+      <!-- READ AGREEMENT -->
+      <section class="panel">
+        <h2><span class="idx">03</span> Read Agreement</h2>
+        <p class="desc">Pull the full auditable evidence trail for any agreement ID, straight from contract storage.</p>
+
+        <div class="row2" style="align-items:end;">
+          <div>
+            <label for="readId">Agreement ID</label>
+            <input type="text" id="readId" placeholder="0">
+          </div>
+          <div>
+            <button class="primary" id="readBtn" style="margin-top:0;">Fetch get_agreement</button>
+          </div>
+        </div>
+
+        <div id="verdictHero" style="display:none;" class="verdict-hero">
+          <p class="label">Final verdict</p>
+          <p class="value" id="verdictValue">—</p>
+          <p class="winner" id="verdictWinner"></p>
+        </div>
+
+        <div id="evidenceList">
+          <p class="evidence-empty">No agreement loaded yet.</p>
+        </div>
+
+        <div class="out" id="readOut" style="display:none;"></div>
+      </section>
+
+      <section class="panel">
+        <h2><span class="idx">—</span> How this dApp talks to GenLayer</h2>
+        <p class="desc" style="margin-bottom:0;">
+          This page uses the official <code>genlayer-js</code> SDK to call
+          <code>create_agreement</code> / <code>resolve_agreement</code>
+          (write, MetaMask-signed) and <code>get_agreement</code> (read-only)
+          directly against the deployed OilPriceOracle contract on GenLayer
+          Studio — no backend server sits in between. Source is on
+          <a href="#" id="repoLink">GitHub</a>.
+        </p>
+      </section>
+
+    </div>
+
+  </main>
+
+  <footer>
+    OilPriceOracle dApp — a minimal reference frontend built with <code>genlayer-js</code>.
+    The contract itself does not move funds; this page only reads and writes agreement state.
+  </footer>
+
+<script type="module">
+import { createClient } from "https://esm.sh/genlayer-js@latest";
+import { studionet } from "https://esm.sh/genlayer-js@latest/chains";
+
+const CONTRACT_ADDRESS = "0xe86C81d32530FCB2e18ba394a69169a79B3768d6";
+
+let client = null;
+let account = null;
+
+const statusDot = document.getElementById('statusDot');
+const statusText = document.getElementById('statusText');
+const connectBtn = document.getElementById('connectBtn');
+
+function setStatus(connected, label){
+  statusDot.classList.toggle('on', connected);
+  statusText.textContent = label;
+}
+
+async function connectWallet(){
+  if (!window.ethereum) {
+    setStatus(false, 'No wallet found — install MetaMask');
+    return;
+  }
+  try {
+    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    account = accounts[0];
+    client = createClient({ chain: studionet, account });
+    setStatus(true, `Connected · ${account.slice(0,6)}…${account.slice(-4)}`);
+    connectBtn.textContent = 'reconnect';
+  } catch (err) {
+    setStatus(false, 'Connection rejected');
+  }
+}
+connectBtn.addEventListener('click', connectWallet);
+
+// Read-only client available even without a wallet connection.
+const readClient = createClient({ chain: studionet });
+
+function showOut(el, text, kind){
+  el.style.display = 'block';
+  el.className = 'out' + (kind ? ' ' + kind : '');
+  el.textContent = text;
+}
+
+function parseDomains(raw){
+  return raw.split(',').map(s => s.trim()).filter(Boolean);
+}
+
+// ---------- Create Agreement ----------
+document.getElementById('createBtn').addEventListener('click', async () => {
+  const out = document.getElementById('createOut');
+  if (!client) { showOut(out, 'Connect a wallet first.', 'err'); return; }
+
+  const partyA = document.getElementById('partyA').value.trim();
+  const partyB = document.getElementById('partyB').value.trim();
+  const oilType = document.getElementById('oilType').value.trim();
+  const threshold = document.getElementById('threshold').value.trim();
+  const comparison = document.getElementById('comparison').value;
+  const description = document.getElementById('description').value.trim();
+  const domainsRaw = document.getElementById('requiredDomains').value.trim();
+  const requiredDomains = domainsRaw ? parseDomains(domainsRaw) : [];
+
+  const args = [partyA, partyB, oilType, threshold, comparison, description, requiredDomains];
+
+  try {
+    showOut(out, 'Submitting transaction…');
+    const txHash = await client.writeContract({
+      address: CONTRACT_ADDRESS,
+      functionName: 'create_agreement',
+      args,
+      value: 0,
+    });
+    showOut(out, `Transaction sent: ${txHash}\nWaiting for finalization…`);
+    const receipt = await client.waitForTransactionReceipt({ hash: txHash, status: 'FINALIZED' });
+    const agreementId = receipt?.data?.result ?? receipt;
+    showOut(out, `Agreement created. ID: ${JSON.stringify(agreementId)}\n\nTx: ${txHash}`, 'ok');
+    document.getElementById('resolveId').value = typeof agreementId === 'string' ? agreementId.replace(/"/g, '') : '';
+    document.getElementById('readId').value = document.getElementById('resolveId').value;
+  } catch (err) {
+    showOut(out, 'Error: ' + (err?.message || String(err)), 'err');
+  }
+});
+
+// ---------- Resolve Agreement ----------
+document.getElementById('resolveBtn').addEventListener('click', async () => {
+  const out = document.getElementById('resolveOut');
+  if (!client) { showOut(out, 'Connect a wallet first.', 'err'); return; }
+
+  const id = document.getElementById('resolveId').value.trim();
+  const urls = document.getElementById('sourceUrls').value
+    .split('\n').map(s => s.trim()).filter(Boolean);
+
+  if (!id) { showOut(out, 'Enter an agreement ID.', 'err'); return; }
+  if (urls.length < 3 || urls.length > 6) {
+    showOut(out, 'Provide 3–6 source URLs (one per line).', 'err');
+    return;
+  }
+
+  try {
+    showOut(out, 'Submitting transaction — this triggers live fetch + LLM extraction under validator consensus, it can take a while…');
+    const txHash = await client.writeContract({
+      address: CONTRACT_ADDRESS,
+      functionName: 'resolve_agreement',
+      args: [id, urls],
+      value: 0,
+    });
+    showOut(out, `Transaction sent: ${txHash}\nWaiting for finalization…`);
+    const receipt = await client.waitForTransactionReceipt({ hash: txHash, status: 'FINALIZED' });
+    showOut(out, `Resolved.\n\nTx: ${txHash}\n\n${JSON.stringify(receipt?.data ?? receipt, null, 2)}`, 'ok');
+    document.getElementById('readId').value = id;
+    fetchAgreement(id);
+  } catch (err) {
+    showOut(out, 'Error: ' + (err?.message || String(err)), 'err');
+  }
+});
+
+// ---------- Read Agreement ----------
+document.getElementById('readBtn').addEventListener('click', () => {
+  const id = document.getElementById('readId').value.trim();
+  if (!id) return;
+  fetchAgreement(id);
+});
+
+async function fetchAgreement(id){
+  const out = document.getElementById('readOut');
+  const evidenceList = document.getElementById('evidenceList');
+  const verdictHero = document.getElementById('verdictHero');
+  try {
+    showOut(out, 'Reading contract state…');
+    const raw = await readClient.readContract({
+      address: CONTRACT_ADDRESS,
+      functionName: 'get_agreement',
+      args: [id],
+    });
+    const agreement = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    showOut(out, JSON.stringify(agreement, null, 2), 'ok');
+    renderAgreement(agreement);
+    updateTape(agreement);
+  } catch (err) {
+    showOut(out, 'Error: ' + (err?.message || String(err)), 'err');
+    evidenceList.innerHTML = '<p class="evidence-empty">Could not load agreement.</p>';
+    verdictHero.style.display = 'none';
+  }
+}
+
+function renderAgreement(agreement){
+  const verdictHero = document.getElementById('verdictHero');
+  const verdictValue = document.getElementById('verdictValue');
+  const verdictWinner = document.getElementById('verdictWinner');
+  const evidenceList = document.getElementById('evidenceList');
+
+  if (agreement.final_verdict) {
+    verdictHero.style.display = 'block';
+    verdictValue.textContent = agreement.final_verdict;
+    verdictValue.style.color =
+      agreement.final_verdict === 'Above' ? 'var(--green)' :
+      agreement.final_verdict === 'Below' ? 'var(--rust)' :
+      'var(--amber-bright)';
+    verdictWinner.textContent = agreement.winner && agreement.winner !== 'unresolved'
+      ? `Winner: ${agreement.winner}` : 'Not yet resolved';
+  } else {
+    verdictHero.style.display = 'none';
+  }
+
+  const records = agreement.records || [];
+  if (!records.length) {
+    evidenceList.innerHTML = '<p class="evidence-empty">No resolution evidence yet — call resolve_agreement.</p>';
+    return;
+  }
+  evidenceList.innerHTML = records.map(r => `
+    <div class="evidence-row">
+      <span class="domain">${r.domain || '—'}</span>
+      <span class="flag">${r.quality_flag || ''}</span>
+      <span class="badge ${r.comparison || 'Unclear'}">${r.comparison || 'Unclear'}</span>
+    </div>
+  `).join('');
+}
+
+function updateTape(agreement){
+  const tape = document.getElementById('tape');
+  const records = agreement.records || [];
+  if (!records.length) return;
+  const items = records.map(r => {
+    const cls = r.comparison === 'Above' ? 'up' : r.comparison === 'Below' ? 'down' : 'flat';
+    const arrow = r.comparison === 'Above' ? '▲' : r.comparison === 'Below' ? '▼' : '＝';
+    const price = r.price != null ? `$${r.price}` : '—';
+    return `<span><b>${r.domain}</b> <span class="${cls}">${arrow} ${price}</span></span>`;
+  }).join('');
+  tape.innerHTML = items + items; // duplicate for seamless scroll loop
+}
+</script>
+
+</body>
+</html>
