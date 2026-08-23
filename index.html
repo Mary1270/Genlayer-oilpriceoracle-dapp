@@ -509,6 +509,34 @@ function parseDomains(raw){
   return raw.split(',').map(s => s.trim()).filter(Boolean);
 }
 
+/**
+ * Extracts the contract method's actual return value from a
+ * GenLayer transaction receipt.
+ *
+ * The high-level shape (confirmed against a real FINALIZED receipt
+ * on GenLayer Studio) nests the leader's decoded return value at
+ * receipt.consensus_data.leader_receipt[0].result.payload.readable,
+ * as a JSON-encoded string - e.g. '"1"' for a bare string return, or
+ * a JSON-encoded string OF a JSON string for a method that itself
+ * returns json.dumps(...) (like resolve_agreement/get_agreement).
+ * This unwraps that nesting generically, re-parsing while the result
+ * is still a JSON-looking string, so callers get a plain value/object
+ * instead of a doubly-encoded string.
+ */
+function extractReturnValue(receipt){
+  const payload = receipt?.consensus_data?.leader_receipt?.[0]?.result?.payload?.readable;
+  if (payload === undefined) return null;
+  let value = payload;
+  for (let i = 0; i < 3; i++) {
+    if (typeof value !== 'string') break;
+    const trimmed = value.trim();
+    const looksLikeJson = trimmed.startsWith('{') || trimmed.startsWith('[') || trimmed.startsWith('"');
+    if (!looksLikeJson) break;
+    try { value = JSON.parse(value); } catch (e) { break; }
+  }
+  return value;
+}
+
 // ---------- Create Agreement ----------
 document.getElementById('createBtn').addEventListener('click', async () => {
   const out = document.getElementById('createOut');
@@ -535,10 +563,14 @@ document.getElementById('createBtn').addEventListener('click', async () => {
     });
     showOut(out, `Transaction sent: ${txHash}\nWaiting for finalization…`);
     const receipt = await client.waitForTransactionReceipt({ hash: txHash, status: 'FINALIZED' });
-    const agreementId = receipt?.data?.result ?? receipt;
-    showOut(out, `Agreement created. ID: ${JSON.stringify(agreementId)}\n\nTx: ${txHash}`, 'ok');
-    document.getElementById('resolveId').value = typeof agreementId === 'string' ? agreementId.replace(/"/g, '') : '';
-    document.getElementById('readId').value = document.getElementById('resolveId').value;
+    const agreementId = extractReturnValue(receipt);
+    if (agreementId !== null && agreementId !== undefined) {
+      showOut(out, `Agreement created. ID: ${agreementId}\n\nTx: ${txHash}`, 'ok');
+      document.getElementById('resolveId').value = String(agreementId);
+      document.getElementById('readId').value = String(agreementId);
+    } else {
+      showOut(out, `Finalized, but the agreement ID could not be auto-detected from the receipt.\nCheck the explorer for the exact ID, or try Read Agreement with a guessed ID.\n\nTx: ${txHash}\n\n${JSON.stringify(receipt, null, 2)}`, 'ok');
+    }
   } catch (err) {
     showOut(out, 'Error: ' + (err?.message || String(err)), 'err');
   }
@@ -569,7 +601,8 @@ document.getElementById('resolveBtn').addEventListener('click', async () => {
     });
     showOut(out, `Transaction sent: ${txHash}\nWaiting for finalization…`);
     const receipt = await client.waitForTransactionReceipt({ hash: txHash, status: 'FINALIZED' });
-    showOut(out, `Resolved.\n\nTx: ${txHash}\n\n${JSON.stringify(receipt?.data ?? receipt, null, 2)}`, 'ok');
+    const result = extractReturnValue(receipt);
+    showOut(out, `Resolved.\n\nTx: ${txHash}\n\n${result !== null ? JSON.stringify(result, null, 2) : JSON.stringify(receipt, null, 2)}`, 'ok');
     document.getElementById('readId').value = id;
     fetchAgreement(id);
   } catch (err) {
