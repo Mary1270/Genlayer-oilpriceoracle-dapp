@@ -189,6 +189,10 @@
   input:focus, textarea:focus, select:focus{
     border-color:var(--amber);
   }
+  input::placeholder, textarea::placeholder{
+    color:var(--slate);
+    opacity:1;
+  }
   textarea{ resize:vertical; min-height:64px; font-family:'IBM Plex Mono',monospace; font-size:13px; }
   .row2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   .hint{ font-size:11.5px; color:var(--slate); margin-top:5px; }
@@ -389,7 +393,9 @@
         <input type="text" id="resolveId" placeholder="0">
 
         <label for="sourceUrls">Source URLs <span class="hint" style="display:inline;text-transform:none;letter-spacing:0;">(one per line, 3–6 total)</span></label>
-        <textarea id="sourceUrls" rows="5" placeholder="https://reuters.com/markets/energy&#10;https://bloomberg.com/energy&#10;https://oilprice.com/latest"></textarea>
+        <textarea id="sourceUrls" rows="5" placeholder="one URL per line">https://reuters.com/markets/energy
+https://bloomberg.com/energy
+https://oilprice.com/latest</textarea>
 
         <button class="primary" id="resolveBtn">Submit resolve_agreement</button>
         <div class="out" id="resolveOut" style="display:none;"></div>
