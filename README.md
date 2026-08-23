@@ -19,7 +19,10 @@ A single static page (`index.html`, no build step, no framework) that lets a per
 2. **Resolve an agreement** — submit 3–6 candidate source URLs and call `resolve_agreement`, which triggers the contract's real fetch → LLM-extraction → validator-consensus pipeline on GenLayer Studio.
 3. **Read an agreement** — call the read-only `get_agreement` method and see the full evidence trail (per-source domain, fetch status, quality flag, comparison) rendered as a readable list, plus the final verdict and winner.
 
-All three actions call the deployed contract directly through [`genlayer-js`](https://github.com/genlayerlabs/genlayer-js), the official GenLayer JavaScript SDK — there is no backend server in between. Write calls (`create_agreement`, `resolve_agreement`) are signed through a connected browser wallet (MetaMask); the read call (`get_agreement`) uses an unauthenticated read client, since it doesn't need signing.
+All three actions call the deployed contract directly through [`genlayer-js`](https://github.com/genlayerlabs/genlayer-js), the official GenLayer JavaScript SDK — there is no backend server in between. The read call (`get_agreement`) uses an unauthenticated read client, since it doesn't need signing. For write calls (`create_agreement`, `resolve_agreement`), there are two ways to connect:
+
+- **MetaMask** — click "connect MetaMask." Requires MetaMask (or another injected-provider wallet) installed and the GenLayer Studio network already added to it.
+- **Test session** — click "start test session" instead. This generates a fresh, throwaway keypair in the browser using `genlayer-js`'s own `createAccount()`, with no external wallet or network configuration required at all. It holds no real value, isn't saved anywhere, and resets on page reload — useful for quickly trying the app (especially on mobile, where adding a custom network to a wallet app is more friction) without any wallet setup. If a transaction fails with an insufficient-funds error, that generated address needs test funds from GenLayer Studio's faucet first.
 
 ## Why a real GenLayer Portal "Project," not just an "Intelligent Contract" submission
 
@@ -45,9 +48,11 @@ python3 -m http.server 8000
 # then open http://localhost:8000
 ```
 
-You'll need:
-- A browser with [MetaMask](https://metamask.io) (or another injected-provider wallet) installed, to **create** or **resolve** agreements (these are signed write transactions).
-- No wallet is required just to **read** an existing agreement by ID.
+You'll need, for write actions, **one of**:
+- A browser with [MetaMask](https://metamask.io) (or another injected-provider wallet) installed and the GenLayer Studio network configured, **or**
+- Nothing at all — click "start test session" to generate a throwaway in-browser keypair instead (see "How it talks to GenLayer" below).
+
+No wallet or session is required just to **read** an existing agreement by ID.
 
 ## How it talks to GenLayer
 
@@ -63,8 +68,15 @@ const agreement = await readClient.readContract({
   args: [agreementId],
 });
 
-// Write (wallet-signed)
-const client = createClient({ chain: studionet, account: walletAddress });
+// Write, via MetaMask
+const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+const client = createClient({ chain: studionet, account: accounts[0] });
+
+// Write, via a throwaway in-browser test account (no wallet needed)
+import { createAccount } from "genlayer-js";
+const testAccount = createAccount();
+const client = createClient({ chain: studionet, account: testAccount });
+
 const txHash = await client.writeContract({
   address: CONTRACT_ADDRESS,
   functionName: "create_agreement",

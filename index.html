@@ -121,6 +121,7 @@
     font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer;
     padding:0;margin-left:6px;text-decoration:underline;
   }
+  .status-pill button + button{ margin-left:14px; }
 
   /* ---------- Layout ---------- */
   main{
@@ -316,8 +317,15 @@
     <div class="status-pill">
       <span class="dot" id="statusDot"></span>
       <span id="statusText">Not connected</span>
-      <button id="connectBtn">connect wallet</button>
+      <button id="connectBtn">connect MetaMask</button>
+      <button id="testSessionBtn">start test session</button>
     </div>
+    <p class="hint" id="testSessionNote" style="display:none; max-width:600px; margin-top:10px;">
+      Test session: a fresh throwaway keypair generated in your browser, held only for this
+      page load. It has no real value and is not saved anywhere. If a transaction fails with
+      an insufficient-funds error, this address likely needs test funds from GenLayer Studio's
+      faucet first.
+    </p>
     <p class="addr-line">
       Contract&nbsp;&nbsp;<code id="contractAddrText">0xe86C81d32530FCB2e18ba394a69169a79B3768d6</code>
       &nbsp;·&nbsp; Network&nbsp;&nbsp;<code>GenLayer Studio</code>
@@ -441,7 +449,7 @@
   </footer>
 
 <script type="module">
-import { createClient } from "https://esm.sh/genlayer-js@latest";
+import { createClient, createAccount } from "https://esm.sh/genlayer-js@latest";
 import { studionet } from "https://esm.sh/genlayer-js@latest/chains";
 
 const CONTRACT_ADDRESS = "0xe86C81d32530FCB2e18ba394a69169a79B3768d6";
@@ -452,6 +460,8 @@ let account = null;
 const statusDot = document.getElementById('statusDot');
 const statusText = document.getElementById('statusText');
 const connectBtn = document.getElementById('connectBtn');
+const testSessionBtn = document.getElementById('testSessionBtn');
+const testSessionNote = document.getElementById('testSessionNote');
 
 function setStatus(connected, label){
   statusDot.classList.toggle('on', connected);
@@ -460,20 +470,31 @@ function setStatus(connected, label){
 
 async function connectWallet(){
   if (!window.ethereum) {
-    setStatus(false, 'No wallet found — install MetaMask');
+    setStatus(false, 'No wallet found — install MetaMask, or use "start test session" instead');
     return;
   }
   try {
     const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
     account = accounts[0];
     client = createClient({ chain: studionet, account });
-    setStatus(true, `Connected · ${account.slice(0,6)}…${account.slice(-4)}`);
+    setStatus(true, `Connected (MetaMask) · ${account.slice(0,6)}…${account.slice(-4)}`);
     connectBtn.textContent = 'reconnect';
+    testSessionNote.style.display = 'none';
   } catch (err) {
     setStatus(false, 'Connection rejected');
   }
 }
 connectBtn.addEventListener('click', connectWallet);
+
+function startTestSession(){
+  const generated = createAccount();
+  account = generated.address ?? generated;
+  client = createClient({ chain: studionet, account: generated });
+  setStatus(true, `Connected (test session) · ${account.slice(0,6)}…${account.slice(-4)}`);
+  testSessionBtn.textContent = 'new test session';
+  testSessionNote.style.display = 'block';
+}
+testSessionBtn.addEventListener('click', startTestSession);
 
 // Read-only client available even without a wallet connection.
 const readClient = createClient({ chain: studionet });
