@@ -568,7 +568,9 @@ document.getElementById('createBtn').addEventListener('click', async () => {
       value: 0,
     });
     showOut(out, `Transaction sent: ${txHash}\nWaiting for finalization…`);
-    const receipt = await client.waitForTransactionReceipt({ hash: txHash, status: 'FINALIZED' });
+    const receipt = await client.waitForTransactionReceipt({
+      hash: txHash, status: 'FINALIZED', interval: 4000, retries: 30, // ~2 min
+    });
     const agreementId = extractReturnValue(receipt);
     if (agreementId !== null && agreementId !== undefined) {
       showOut(out, `Agreement created. ID: ${agreementId}\n\nTx: ${txHash}`, 'ok');
@@ -605,14 +607,21 @@ document.getElementById('resolveBtn').addEventListener('click', async () => {
       args: [id, urls],
       value: 0,
     });
-    showOut(out, `Transaction sent: ${txHash}\nWaiting for finalization…`);
-    const receipt = await client.waitForTransactionReceipt({ hash: txHash, status: 'FINALIZED' });
+    showOut(out, `Transaction sent: ${txHash}\nWaiting for finalization — this step runs a real fetch + LLM extraction per source under validator consensus, so it can take a few minutes…`);
+    const receipt = await client.waitForTransactionReceipt({
+      hash: txHash, status: 'FINALIZED', interval: 5000, retries: 90, // ~7.5 min
+    });
     const result = extractReturnValue(receipt);
     showOut(out, `Resolved.\n\nTx: ${txHash}\n\n${result !== null ? JSON.stringify(result, null, 2) : JSON.stringify(receipt, null, 2)}`, 'ok');
     document.getElementById('readId').value = id;
     fetchAgreement(id);
   } catch (err) {
-    showOut(out, 'Error: ' + (err?.message || String(err)), 'err');
+    const message = err?.message || String(err);
+    if (/timed out/i.test(message)) {
+      showOut(out, `${message}\n\nThis is just the browser giving up on waiting — the transaction itself may still finalize on-chain. Wait a bit longer, then use "Read Agreement" with the same ID to check.`, 'err');
+    } else {
+      showOut(out, 'Error: ' + message, 'err');
+    }
   }
 });
 
