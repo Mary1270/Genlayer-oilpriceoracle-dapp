@@ -5,9 +5,29 @@
 
 A minimal, no-build-step web frontend for [OilPriceOracle](https://github.com/Mary1270/Genlayer-oilpriceoracle-v3), the multi-source, provenance-checked crude-oil price settlement Intelligent Contract on GenLayer. This is the **app layer** — real frontend logic that connects to a real, deployed GenLayer Intelligent Contract — as distinct from the contract submission itself.
 
+**The contract source is included in this repository** (`contract.py`, plus its full offline test suite under `tests/`) alongside the frontend, so the client-side method mapping, source fetching, domain/endpoint checks, price comparison, validator-consensus pattern, and resolution guards this dApp calls into can all be reviewed together, in one place, as a single project — rather than requiring a separate repository lookup to see what `create_agreement`/`resolve_agreement`/`get_agreement` actually do server-side. It is identical to the version at [Genlayer-oilpriceoracle-v3](https://github.com/Mary1270/Genlayer-oilpriceoracle-v3), copied here for review convenience, not forked or modified.
+
 **Live contract:** `0xe86C81d32530FCB2e18ba394a69169a79B3768d6` on GenLayer Studio
 **Explorer:** https://explorer-studio.genlayer.com/address/0xe86C81d32530FCB2e18ba394a69169a79B3768d6
-**Contract source:** https://github.com/Mary1270/Genlayer-oilpriceoracle-v3
+**Contract source (canonical repo):** https://github.com/Mary1270/Genlayer-oilpriceoracle-v3
+
+---
+
+## Repository layout
+
+```
+index.html      the entire frontend (this project) - HTML/CSS/JS, no build step
+contract.py     the Intelligent Contract this frontend calls (included for review)
+tests/          contract.py's offline test suite (135/135 passing) - see below
+README.md
+LICENSE
+```
+
+`create_agreement`/`resolve_agreement`/`get_agreement` in `index.html` map 1:1 onto the public methods defined in `contract.py`. To review what actually happens when this page's write calls trigger `resolve_agreement` server-side — the fetch → LLM-extraction pipeline, domain/endpoint allowlist checks, deterministic price comparison, and the `prompt_comparative` validator-consensus pattern — see `contract.py` directly, or its full design writeup in the [canonical OilPriceOracle repository](https://github.com/Mary1270/Genlayer-oilpriceoracle-v3)'s README.
+
+```bash
+python3 -m unittest discover -s tests -p "test_*.py" -v
+```
 
 ---
 
